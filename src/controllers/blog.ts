@@ -87,4 +87,30 @@ const createOrUpdateBlog = async (
   }
 };
 
-export { createOrUpdateBlog };
+const latestBlog = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    let { page } = req.body;
+    let maxLimit = 3;
+
+    const blogs = await Blog.find({ draft: false })
+      .populate(
+        "author",
+        "personal_info.fullname personal_info.username personal_info.profile_img -_id"
+      )
+      .sort({ publishedAt: -1 })
+      .select("blog_id title description banner activity tags publishedAt -_id")
+      .skip((page - 1) * maxLimit)
+      .limit(maxLimit);
+
+    res.status(200).json({ blogs });
+  } catch (error: any) {
+    // Pass error to error handling middleware
+    next(createHttpError(500, error.message));
+  }
+};
+
+export { createOrUpdateBlog, latestBlog };
