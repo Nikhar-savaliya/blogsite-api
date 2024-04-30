@@ -127,4 +127,37 @@ const countAllPublishedBlogs = async (
   }
 };
 
-export { createOrUpdateBlog, latestBlog, countAllPublishedBlogs };
+const trendingBlogs = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const blogs = await Blog.find({ draft: false })
+      .populate(
+        "author",
+        "personal_info.fullname personal_info.username personal_info.profile_img -_id"
+      )
+      .sort({
+        "activity.total_read": -1,
+        "activity.total_like": -1,
+        publishedAt: -1,
+      })
+      .select("blog_id title publishedAt -_id")
+      .limit(5);
+
+    res.status(200).json({ blogs });
+  } catch (error: any) {
+    // Pass error to error handling middleware
+    next(createHttpError(500, error.message));
+  }
+};
+
+
+
+export {
+  createOrUpdateBlog,
+  latestBlog,
+  countAllPublishedBlogs,
+  trendingBlogs,
+};
