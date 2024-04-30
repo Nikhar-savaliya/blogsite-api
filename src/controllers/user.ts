@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import createHttpError from "http-errors";
+import createHttpError, { HttpError } from "http-errors";
 import { sign } from "jsonwebtoken";
 
 import userModel from "../models/user";
@@ -10,14 +10,8 @@ import { encryptPassword, verifyPassword } from "../utils/password";
 const createUser = async (req: Request, res: Response, next: NextFunction) => {
   const { name, email, password } = req.body;
 
-  // validation
-  if (!name || !email || !password) {
-    const error = createHttpError(400, "All fields are required");
-    return next(error);
-  }
-
-  // database call
   try {
+    // Check if the user already exists
     const user = await userModel.findOne({ email });
     if (user) {
       const error = createHttpError(
@@ -26,25 +20,24 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
       );
       return next(error);
     }
-  } catch (error) {
-    return next(createHttpError(500, "error while getting user"));
-  }
 
-  const hashedPassword = await encryptPassword(password);
-  let newUser: User;
-  try {
-    // new user
-    newUser = await userModel.create({
-      name,
-      email,
-      password: hashedPassword,
-    });
+    // Encrypt the password before saving it to the database
+    const hashedPassword = await encryptPassword(password);
 
+    // Create a new user
+    const newUser = new userModel({ name, email, password: hashedPassword });
+    await newUser.save();
+
+    // Send success response
     res.status(201).json({
-      message: "user registered successfully please login to contiune",
+      success: true,
+      message: "User registered successfully. Please login to continue.",
     });
-  } catch (error) {
-    return next(createHttpError(500, "error in creating user\n " + error));
+  } catch (error: any) {
+    // Handle database or other internal errors
+    return next(
+      createHttpError(500, "Error in creating user: " + error.message)
+    );
   }
 };
 

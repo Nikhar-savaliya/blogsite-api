@@ -2,11 +2,14 @@ import bcrypt from "bcrypt";
 
 const saltRounds = 10;
 
-const encryptPassword = async (password: string) => {
+const encryptPassword = async (password: string): Promise<string> => {
   try {
+    // generate a aslt and hash the password
     const hash = await bcrypt.hash(password, saltRounds);
     return hash;
   } catch (error) {
+    // handle errors
+    console.log("password encryption failed:", error);
     throw new Error(
       error instanceof Error ? error.message : "password encryption failed"
     );
