@@ -113,4 +113,18 @@ const latestBlog = async (
   }
 };
 
-export { createOrUpdateBlog, latestBlog };
+const countAllPublishedBlogs = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const count = await Blog.countDocuments({ draft: false });
+    res.status(200).json({ totalBlogsCount: count });
+  } catch (error: any) {
+    // Pass error to error handling middleware
+    next(createHttpError(500, error.message));
+  }
+};
+
+export { createOrUpdateBlog, latestBlog, countAllPublishedBlogs };
