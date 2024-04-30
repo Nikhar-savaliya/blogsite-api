@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import Blog from "../models/Blog";
 import User from "../models/User";
 import { AuthRequest } from "../middlewares/authenticate";
+import UserType from "../types/user";
 
 const createOrUpdateBlog = async (
   req: Request,
@@ -260,8 +261,10 @@ const getBlog = async (
       throw createHttpError(404, "Blog not found");
     }
 
+    const author = blog.author as UserType;
+
     await User.findOneAndUpdate(
-      { "personal_info.username": blog.author.personal_info.username },
+      { "personal_info.username": author.personal_info.username },
       { $inc: { "account_info.total_reads": incrementalValue } }
     );
 
