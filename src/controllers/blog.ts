@@ -153,11 +153,50 @@ const trendingBlogs = async (
   }
 };
 
+const searchBlogByQuery = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    let { tag, page, query, author, limit, eliminateBlog } = req.body;
+    let findQuery: any;
 
+    if (tag) {
+      findQuery = {
+        tags: tag,
+        draft: false,
+        blog_id: { $ne: eliminateBlog },
+      };
+    } else if (query) {
+      findQuery = { title: new RegExp(query, "i"), draft: false };
+    } else if (author) {
+      findQuery = { author, draft: false };
+    }
+
+    let maxLimit = limit || 3;
+
+    const blogs = await Blog.find(findQuery)
+      .populate(
+        "author",
+        "personal_info.fullname personal_info.username personal_info.profile_img -_id"
+      )
+      .sort({ publishedAt: -1 })
+      .select("blog_id title description banner activity tags publishedAt -_id")
+      .skip((page - 1) * maxLimit)
+      .limit(maxLimit);
+
+    res.status(200).json({ blogs });
+  } catch (error: any) {
+    // Pass error to error handling middleware
+    next(createHttpError(500, error.message));
+  }
+};
 
 export {
   createOrUpdateBlog,
   latestBlog,
   countAllPublishedBlogs,
   trendingBlogs,
+  searchBlogByQuery,
 };
