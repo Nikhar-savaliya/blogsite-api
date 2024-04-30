@@ -1,13 +1,24 @@
 import { Request, Response, NextFunction } from "express";
-import createHttpError, { HttpError } from "http-errors";
-import { sign } from "jsonwebtoken";
+import createHttpError from "http-errors";
 
-import userModel from "../models/user";
-import { config } from "../config/config";
-import { User } from "../types/user";
+import userModel from "../models/User";
+import User from "../types/user";
 import { encryptPassword, verifyPassword } from "../utils/password";
+import generateUniqueUsername from "../utils/generateUniqueUsername";
+import generateJWtoken from "../utils/generateJWToken";
+import formatDatatoSend from "../utils/responseUserDataFormat";
 
-const createUser = async (req: Request, res: Response, next: NextFunction) => {
+/**
+ *
+ * @create new user controller
+ *
+ */
+
+const createUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const { name, email, password } = req.body;
 
   try {
@@ -24,9 +35,22 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
     // Encrypt the password before saving it to the database
     const hashedPassword = await encryptPassword(password);
 
+    // generate unique username
+    let username = await generateUniqueUsername(email);
+
     // Create a new user
-    const newUser = new userModel({ name, email, password: hashedPassword });
+    const newUser: User = new userModel({
+      personal_info: {
+        fullname: name,
+        username,
+        email,
+        password: hashedPassword,
+      },
+    });
     await newUser.save();
+
+    // log newly created user to console
+    console.log(formatDatatoSend(newUser));
 
     // Send success response
     res.status(201).json({
@@ -40,6 +64,12 @@ const createUser = async (req: Request, res: Response, next: NextFunction) => {
     );
   }
 };
+
+/**
+ *
+ * @login new user controller
+ *
+ */
 
 const loginUser = async (req: Request, res: Response, next: NextFunction) => {
   const { email, password } = req.body;
@@ -59,7 +89,7 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
 
   try {
     // comparing password
-    const isMatch = verifyPassword(password, user.password);
+    const isMatch = verifyPassword(password, user.personal_info.password);
     if (!isMatch) {
       return next(createHttpError(400, "email or password incorrect"));
     }
@@ -68,9 +98,7 @@ const loginUser = async (req: Request, res: Response, next: NextFunction) => {
   }
   try {
     // token generation JWT
-    const token = sign({ sub: user._id }, config.jwtSecret as string, {
-      expiresIn: "7d",
-    });
+    const token = generateJWtoken(user._id);
 
     // response
     res.status(201).json({ accessToken: token });

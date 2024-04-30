@@ -23,7 +23,7 @@ const createUserMiddleware = (
     }
 
     // Validation: Check email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    let emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
     if (!emailRegex.test(email)) {
       throw createHttpError(400, "Invalid email format");
     }
