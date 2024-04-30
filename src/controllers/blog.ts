@@ -193,10 +193,93 @@ const searchBlogByQuery = async (
   }
 };
 
+const countSearchBlog = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    let { tag, query, author } = req.body;
+    let findQuery;
+
+    if (tag) {
+      findQuery = { tags: tag, draft: false };
+    } else if (query) {
+      findQuery = { title: new RegExp(query, "i"), draft: false };
+    } else if (author) {
+      findQuery = { author, draft: false };
+    }
+
+    const count = await Blog.countDocuments(findQuery);
+    res.status(200).json({ searchBlogsCount: count });
+  } catch (error: any) {
+    // Pass error to error handling middleware
+    next(createHttpError(500, error.message));
+  }
+};
+
+const getProfile = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { username } = req.body;
+    const user = await User.findOne({
+      "personal_info.username": username,
+    }).select("-personal_info.password -google_auth -updatedAt -blogs");
+    if (!user) {
+      throw createHttpError(404, "User not found");
+    }
+    res.status(200).json(user);
+  } catch (error: any) {
+    next(createHttpError(500, error.message));
+  }
+};
+
+const getBlog = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { blogId, draft, mode } = req.body;
+    const incrementalValue = mode === "edit" ? 0 : 1;
+
+    const blog = await Blog.findOneAndUpdate(
+      { blog_id: blogId },
+      { $inc: { "activity.total_reads": incrementalValue } }
+    )
+      .populate(
+        "author",
+        "personal_info.username personal_info.fullname personal_info.profile_img -_id"
+      )
+      .select("-comment -updatedAt -__v");
+
+    if (!blog) {
+      throw createHttpError(404, "Blog not found");
+    }
+
+    await User.findOneAndUpdate(
+      { "personal_info.username": blog.author.personal_info.username },
+      { $inc: { "account_info.total_reads": incrementalValue } }
+    );
+
+    if (blog.draft && !draft) {
+      throw createHttpError(500, "You cannot access draft blogs.");
+    }
+
+    res.status(200).json({ blog });
+  } catch (error: any) {
+    next(createHttpError(500, error.message));
+  }
+};
+
 export {
   createOrUpdateBlog,
   latestBlog,
   countAllPublishedBlogs,
   trendingBlogs,
   searchBlogByQuery,
+  countSearchBlog,
 };
